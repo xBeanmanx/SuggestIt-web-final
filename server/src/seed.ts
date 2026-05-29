@@ -118,12 +118,14 @@ export async function seedStore(store: IStore): Promise<void> {
   });
 
   // Seed existing users and groups
+  const seededUserIds = new Map<string, string>();
   for (const user of FIXED_USERS) {
     try {
       if (store instanceof AsyncMemoryStore) {
         store._seedUser({ ...user, role: "USER", permissions: ["READ_DOMAIN", "WRITE_OWN_SUGGESTIONS"] });
+        seededUserIds.set(user.id, user.id);
       } else {
-        await store.createUser({
+        const created = await store.createUser({
           name: user.name,
           email: user.email,
           username: user.username,
@@ -132,18 +134,24 @@ export async function seedStore(store: IStore): Promise<void> {
           permissions: [],
           avatarUrl: user.avatarUrl,
         });
+        seededUserIds.set(user.id, created.id);
       }
     } catch (error) {
-      // User already exists, skip
+      const existing = await store.getUserByEmail(user.email);
+      if (existing) seededUserIds.set(user.id, existing.id);
     }
   }
 
-  const ownerId = "user_0001";
+  const ownerId = seededUserIds.get("user_0001");
+  if (!ownerId) throw new Error("Seed owner user was not created");
 
   // Seed groups with suggestions
   for (let gi = 0; gi < GROUP_SEEDS.length; gi++) {
     const groupSeed = GROUP_SEEDS[gi];
-    const memberIds = FIXED_USERS.slice(0, Math.floor(Math.random() * 3) + 4).map((u) => u.id);
+    const memberIds = FIXED_USERS
+      .slice(0, Math.floor(Math.random() * 3) + 4)
+      .map((u) => seededUserIds.get(u.id))
+      .filter((id): id is string => Boolean(id));
 
     const group = await store.createGroup(
       { name: groupSeed.name, description: groupSeed.description, ownerId },
