@@ -1,0 +1,54 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"],
+  "exclude": [
+    "src/tests",
+    "src/app/components/ui/accordion.tsx",
+    "src/app/components/ui/aspect-ratio.tsx",
+    "src/app/components/ui/calendar.tsx",
+    "src/app/components/ui/carousel.tsx",
+    "src/app/components/ui/chart.tsx",
+    "src/app/components/ui/collapsible.tsx",
+    "src/app/components/ui/command.tsx",
+    "src/app/components/ui/context-menu.tsx",
+    "src/app/components/ui/drawer.tsx",
+    "src/app/components/ui/dropdown-menu.tsx",
+    "src/app/components/ui/form.tsx",
+    "src/app/components/ui/hover-card.tsx",
+    "src/app/components/ui/input-otp.tsx",
+    "src/app/components/ui/label.tsx",
+    "src/app/components/ui/menubar.tsx",
+    "src/app/components/ui/popover.tsx",
+    "src/app/components/ui/radio-group.tsx",
+    "src/app/components/ui/resizable.tsx",
+    "src/app/components/ui/scroll-area.tsx",
+    "src/app/components/ui/separator.tsx",
+    "src/app/components/ui/sidebar.tsx",
+    "src/app/components/ui/slider.tsx",
+    "src/app/components/ui/switch.tsx",
+    "src/app/components/ui/toggle-group.tsx",
+    "src/app/components/ui/toggle.tsx",
+    "src/app/components/ui/tooltip.tsx"
+  ]
+}
