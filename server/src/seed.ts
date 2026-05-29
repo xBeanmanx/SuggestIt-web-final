@@ -3,6 +3,7 @@
 // Mirrors the client-side mock data for dev/demo purposes.
 // ============================================================
 
+import { AsyncMemoryStore } from "./store-factory.js";
 import type { IStore } from "./types.js";
 import type { User, SuggestionStatus } from "./types.js";
 
@@ -119,15 +120,19 @@ export async function seedStore(store: IStore): Promise<void> {
   // Seed existing users and groups
   for (const user of FIXED_USERS) {
     try {
-      await store.createUser({
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        password: "password123",
-        role: "USER",
-        permissions: [],
-        avatarUrl: user.avatarUrl,
-      });
+      if (store instanceof AsyncMemoryStore) {
+        store._seedUser({ ...user, role: "USER", permissions: ["READ_DOMAIN", "WRITE_OWN_SUGGESTIONS"] });
+      } else {
+        await store.createUser({
+          name: user.name,
+          email: user.email,
+          username: user.username,
+          password: "password123",
+          role: "USER",
+          permissions: [],
+          avatarUrl: user.avatarUrl,
+        });
+      }
     } catch (error) {
       // User already exists, skip
     }
