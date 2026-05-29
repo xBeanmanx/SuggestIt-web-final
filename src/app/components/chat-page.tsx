@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
-import { fetchConversations, fetchConversationMessages, getAccessToken, sendChatMessage, createChatConversation, type ChatConversation, type ChatMessage } from "../../api/graphql";
+import { fetchConversations, fetchConversationMessages, getAccessToken, sendChatMessage, createChatConversation, WS_ENDPOINT, type ChatConversation, type ChatMessage } from "../../api/graphql";
 import type { User } from "../../types";
 
 interface ChatComponentProps {
@@ -56,10 +56,8 @@ export function ChatComponent({ currentUser, groupId, groupMembers }: ChatCompon
   useEffect(() => {
     if (!selectedConversation) return;
 
-    // Get the WebSocket URL using the same hostname and port as the server
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const token = getAccessToken();
-    const wsUrl = `${protocol}://${window.location.hostname}:4000/ws/chat${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    const wsUrl = `${WS_ENDPOINT}/chat${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 
     const ws = new WebSocket(wsUrl);
 
