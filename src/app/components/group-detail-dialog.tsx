@@ -193,8 +193,6 @@ export function GroupDetailDialog({ group, open, onClose }: GroupDetailDialogPro
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {isLoading ? (
             <div className="flex h-full items-center justify-center" style={{ color: "var(--app-text-muted)" }}>
-              <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-              Opening chat...
             </div>
           ) : messages.length === 0 ? (
             <div className="flex h-full items-center justify-center text-center" style={{ color: "var(--app-text-muted)" }}>
