@@ -5,7 +5,6 @@ import { GroupsPage } from "./components/groups-page";
 import { FriendsPage } from "./components/friends-page";
 import { AdminPage } from "./components/admin-page";
 import { StatisticsPage } from "./components/statistics-page";
-import { ChatPageWrapper } from "./components/chat-page-wrapper";
 import { ProtectedRoute } from "./components/protected-route";
 
 export const router = createBrowserRouter([
@@ -14,7 +13,6 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: SuggestionsPage },
-      { path: "chat", Component: ChatPageWrapper },
       { path: "groups", Component: GroupsPage },
       { path: "friends", Component: FriendsPage },
       {

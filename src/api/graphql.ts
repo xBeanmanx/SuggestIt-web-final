@@ -254,6 +254,28 @@ export const QUERIES = {
     }
   `,
 
+  STATISTICS_SNAPSHOT: /* GraphQL */ `
+    query StatisticsSnapshot {
+      statisticsSnapshot {
+        scope
+        totals {
+          totalUsers totalGroups totalSuggestions totalAlchemyResults
+          totalUpvotes totalDownvotes accepted pending rejected
+        }
+        statusBreakdown { open under_review accepted rejected }
+        groups {
+          groupId name memberCount totalSuggestions accepted pending totalUpvotes
+        }
+        contributors {
+          userId name suggestionCount acceptedCount totalUpvotes acceptanceRate
+        }
+        topSuggestions {
+          id title groupId groupName status upvotes downvotes score isOwnSuggestion
+        }
+      }
+    }
+  `,
+
   ACTION_LOGS: /* GraphQL */ `
     query ActionLogs {
       actionLogs {
@@ -274,7 +296,7 @@ export const QUERIES = {
   CONVERSATIONS: /* GraphQL */ `
     query Conversations($groupId: ID!) {
       conversations(groupId: $groupId) {
-        id name groupId createdAt updatedAt messageCount
+        id name groupId isGroupChat createdAt updatedAt messageCount
         members { id name email avatarUrl }
       }
     }
@@ -283,7 +305,7 @@ export const QUERIES = {
   CONVERSATION: /* GraphQL */ `
     query Conversation($id: ID!) {
       conversation(id: $id) {
-        id name groupId createdAt updatedAt messageCount
+        id name groupId isGroupChat createdAt updatedAt messageCount
         members { id name email avatarUrl }
         messages { id conversationId userId content createdAt user { id name email avatarUrl } }
       }
@@ -452,7 +474,16 @@ export const MUTATIONS = {
   CREATE_CHAT_CONVERSATION: /* GraphQL */ `
     mutation CreateChatConversation($input: CreateChatConversationInput!) {
       createChatConversation(input: $input) {
-        id name groupId createdAt updatedAt messageCount
+        id name groupId isGroupChat createdAt updatedAt messageCount
+        members { id name email avatarUrl }
+      }
+    }
+  `,
+
+  ENSURE_GROUP_CHAT: /* GraphQL */ `
+    mutation EnsureGroupChat($groupId: ID!) {
+      ensureGroupChat(groupId: $groupId) {
+        id name groupId isGroupChat createdAt updatedAt messageCount
         members { id name email avatarUrl }
       }
     }
@@ -603,6 +634,12 @@ export async function fetchGlobalStats() {
   return res.data!.globalStats;
 }
 
+export async function fetchStatisticsSnapshot(): Promise<StatisticsSnapshot> {
+  const res = await gqlFetch<{ statisticsSnapshot: StatisticsSnapshot }>(QUERIES.STATISTICS_SNAPSHOT);
+  if (res.errors?.length) throw new Error(res.errors[0].message);
+  return res.data!.statisticsSnapshot;
+}
+
 export async function fetchActionLogs(): Promise<ActionLog[]> {
   const res = await gqlFetch<{ actionLogs: ActionLog[] }>(QUERIES.ACTION_LOGS);
   if (res.errors?.length) throw new Error(res.errors[0].message);
@@ -630,6 +667,7 @@ export interface ChatConversation {
   id: string;
   name: string | null;
   groupId: string;
+  isGroupChat: boolean;
   members: User[];
   messageCount: number;
   createdAt: string;
@@ -680,6 +718,15 @@ export async function createChatConversation(input: {
   return res.data!.createChatConversation;
 }
 
+export async function ensureGroupChat(groupId: string): Promise<ChatConversation> {
+  const res = await gqlFetch<{ ensureGroupChat: ChatConversation }>(
+    MUTATIONS.ENSURE_GROUP_CHAT,
+    { groupId }
+  );
+  if (res.errors?.length) throw new Error(res.errors[0].message);
+  return res.data!.ensureGroupChat;
+}
+
 export async function sendChatMessage(input: {
   conversationId: string;
   userId: string;
@@ -720,4 +767,48 @@ export interface GlobalStats {
   totalAlchemyResults: number;
   overallUpvotes: number;
   overallDownvotes: number;
+}
+
+export interface StatisticsSnapshot {
+  scope: "user" | "admin";
+  totals: {
+    totalUsers: number;
+    totalGroups: number;
+    totalSuggestions: number;
+    totalAlchemyResults: number;
+    totalUpvotes: number;
+    totalDownvotes: number;
+    accepted: number;
+    pending: number;
+    rejected: number;
+  };
+  statusBreakdown: { open: number; under_review: number; accepted: number; rejected: number };
+  groups: Array<{
+    groupId: string;
+    name: string;
+    memberCount: number;
+    totalSuggestions: number;
+    accepted: number;
+    pending: number;
+    totalUpvotes: number;
+  }>;
+  contributors: Array<{
+    userId: string;
+    name: string;
+    suggestionCount: number;
+    acceptedCount: number;
+    totalUpvotes: number;
+    acceptanceRate: number;
+  }>;
+  topSuggestions: Array<{
+    id: string;
+    title: string;
+    groupId: string;
+    groupName: string;
+    status: SuggestionStatus;
+    upvotes: number;
+    downvotes: number;
+    score: number;
+    isOwnSuggestion: boolean;
+  }>;
 }

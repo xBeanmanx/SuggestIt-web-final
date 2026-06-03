@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
-import { Home, Users, UserPlus, Shield, BarChart3, MessageCircle } from "lucide-react";
+import { Home, Users, UserPlus, Shield, BarChart3 } from "lucide-react";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { ProfileDialog } from "./profile-dialog";
 import { ActivityMonitor } from "../../utils/cookieMonitor";
@@ -98,18 +98,6 @@ export function Layout() {
           >
             <Users style={{ width: 'var(--icon-md)', height: 'var(--icon-md)' }} />
             <span style={{ fontSize: '0.75rem' }}>Groups</span>
-          </Link>
-          <Link
-            to="/chat"
-            className="flex flex-col items-center min-w-0"
-            style={{
-              gap: 'var(--spacing-xs)',
-              padding: 'var(--spacing-xs) var(--spacing-sm)',
-              color: isActive("/chat") ? 'var(--app-purple-400)' : 'var(--app-text-muted)'
-            }}
-          >
-            <MessageCircle style={{ width: 'var(--icon-md)', height: 'var(--icon-md)' }} />
-            <span style={{ fontSize: '0.75rem' }}>Chat</span>
           </Link>
           <Link
             to="/friends"

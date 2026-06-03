@@ -334,6 +334,7 @@ export const ChatConversationEntity = new EntitySchema<any>({
     id: { type: "varchar", length: 36, primary: true },
     name: { type: "varchar", length: 255, nullable: true },
     groupId: { type: "varchar", length: 36 },
+    isGroupChat: { type: "bit", default: false },
     createdAt: { type: "datetime2", createDate: true, default: () => "SYSUTCDATETIME()" },
     updatedAt: { type: "datetime2", default: () => "SYSUTCDATETIME()" },
   },
@@ -345,7 +346,10 @@ export const ChatConversationEntity = new EntitySchema<any>({
       onDelete: "CASCADE",
     },
   },
-  indices: [{ name: "IX_ChatConversations_groupId", columns: ["groupId"] }],
+  indices: [
+    { name: "IX_ChatConversations_groupId", columns: ["groupId"] },
+    { name: "IX_ChatConversations_groupChat", columns: ["groupId", "isGroupChat"] },
+  ],
 });
 
 export const ChatConversationMembersEntity = new EntitySchema<any>({

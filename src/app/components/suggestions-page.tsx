@@ -4,7 +4,7 @@
 // • WebSocket listener: live suggestions from the generator
 // • Offline banner + fallback to in-memory data
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Filter, Orbit, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Plus, Orbit, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -228,10 +228,6 @@ export function SuggestionsPage() {
             <Orbit style={{ width: "var(--icon-md)", height: "var(--icon-md)" }} />
             <span className="absolute -top-1 -right-1 rounded-full animate-pulse"
               style={{ width: "var(--spacing-sm)", height: "var(--spacing-sm)", backgroundColor: "var(--app-purple-600)" }} />
-          </Button>
-          <Button variant="outline" size="icon" className="hover:opacity-90"
-            style={{ backgroundColor: "var(--app-bg-secondary)", borderColor: "var(--app-border-primary)", color: "var(--app-text-secondary)" }}>
-            <Filter style={{ width: "var(--icon-md)", height: "var(--icon-md)" }} />
           </Button>
           <Button onClick={() => setShowAddDialog(true)} disabled={myGroups.length === 0} className="hover:opacity-90"
             style={{ backgroundColor: "var(--app-purple-600)", color: "#fff" }}>

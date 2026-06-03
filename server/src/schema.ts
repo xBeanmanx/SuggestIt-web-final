@@ -151,6 +151,7 @@ export const typeDefs = /* GraphQL */ `
     id: ID!
     name: String
     groupId: ID!
+    isGroupChat: Boolean!
     members: [User!]!
     messageCount: Int!
     createdAt: String!
@@ -206,6 +207,58 @@ export const typeDefs = /* GraphQL */ `
     groupCount: Int!
     suggestionCount: Int!
     netScore: Int!
+  }
+
+  type StatisticsTotals {
+    totalUsers: Int!
+    totalGroups: Int!
+    totalSuggestions: Int!
+    totalAlchemyResults: Int!
+    totalUpvotes: Int!
+    totalDownvotes: Int!
+    accepted: Int!
+    pending: Int!
+    rejected: Int!
+  }
+
+  type StatisticsGroupSummary {
+    groupId: ID!
+    name: String!
+    memberCount: Int!
+    totalSuggestions: Int!
+    accepted: Int!
+    pending: Int!
+    totalUpvotes: Int!
+  }
+
+  type StatisticsContributor {
+    userId: ID!
+    name: String!
+    suggestionCount: Int!
+    acceptedCount: Int!
+    totalUpvotes: Int!
+    acceptanceRate: Float!
+  }
+
+  type StatisticsTopSuggestion {
+    id: ID!
+    title: String!
+    groupId: ID!
+    groupName: String!
+    status: SuggestionStatus!
+    upvotes: Int!
+    downvotes: Int!
+    score: Int!
+    isOwnSuggestion: Boolean!
+  }
+
+  type StatisticsSnapshot {
+    scope: String!
+    totals: StatisticsTotals!
+    statusBreakdown: StatusBreakdown!
+    groups: [StatisticsGroupSummary!]!
+    contributors: [StatisticsContributor!]!
+    topSuggestions: [StatisticsTopSuggestion!]!
   }
 
   #  Inputs 
@@ -300,6 +353,7 @@ export const typeDefs = /* GraphQL */ `
     # Stats
     groupStats(groupId: ID!): GroupStats!
     globalStats: GlobalStats!
+    statisticsSnapshot: StatisticsSnapshot!
     topContributors(optimized: Boolean): [TopContributor!]!
 
     # Gold: persisted security audit data
@@ -337,6 +391,7 @@ export const typeDefs = /* GraphQL */ `
 
     # Chat
     createChatConversation(input: CreateChatConversationInput!): ChatConversation!
+    ensureGroupChat(groupId: ID!): ChatConversation!
     sendChatMessage(input: SendChatMessageInput!): ChatMessage!
     deleteChatMessage(id: ID!, userId: ID!): Boolean!
     setSuggestionStatus(id: ID!, status: SuggestionStatus!, requesterId: ID!): Suggestion

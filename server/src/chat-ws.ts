@@ -143,12 +143,14 @@ async function handleChatMessage(store: IStore, clientId: string, message: ChatW
 
   switch (message.type) {
     case "chat:message": {
-      const { conversationId, messageId, userId, content, createdAt } = message.payload as {
+      const { conversationId, id, messageId, userId, content, createdAt, user } = message.payload as {
         conversationId: string;
+        id?: string;
         messageId: string;
         userId: string;
         content: string;
         createdAt: string;
+        user?: unknown;
       };
       if (!(await canAccessConversation(store, conversationId, connection.userId))) {
         sendError(connection, "Not authorized for this conversation");
@@ -157,7 +159,7 @@ async function handleChatMessage(store: IStore, clientId: string, message: ChatW
       connection.conversationIds.add(conversationId);
       broadcastToConversation(conversationId, {
         type: "chat:message",
-        payload: { conversationId, messageId, userId: connection.userId, content, createdAt },
+        payload: { id: id ?? messageId, conversationId, userId: connection.userId, content, createdAt, user },
       });
       break;
     }

@@ -9,6 +9,8 @@ import type {
   GroupStats,
   GlobalStats,
   PaginatedSuggestions,
+  StatisticsSnapshot,
+  Suggestion,
   SuggestionStatus,
 } from "../types.js";
 
@@ -199,6 +201,122 @@ export const queryResolvers = {
       totalAlchemyResults: allAlchemy.length,
       overallUpvotes: allSuggestions.reduce((s, x) => s + x.upvotes, 0),
       overallDownvotes: allSuggestions.reduce((s, x) => s + x.downvotes, 0),
+    };
+  },
+
+  async statisticsSnapshot(_: unknown, __: unknown, context: Context): Promise<StatisticsSnapshot> {
+    const requesterId = requireAuthenticatedUser(context.userId);
+    const { store } = context;
+    const requester = await store.getUserById(requesterId);
+    if (!requester) throw new GraphQLError(`User ${requesterId} not found`, { extensions: { code: "NOT_FOUND" } });
+
+    const isAdmin = context.role === "ADMIN" || requester.role === "ADMIN";
+    const allGroups = await store.getGroups();
+    const groups = isAdmin
+      ? allGroups
+      : allGroups.filter((group) => group.members.some((member) => member.userId === requesterId));
+
+    const users = await store.getUsers();
+    const groupSuggestions = await Promise.all(
+      groups.map(async (group) => ({ group, suggestions: await store.getSuggestions(group.id) }))
+    );
+    const groupAlchemy = await Promise.all(
+      groups.map(async (group) => ({ groupId: group.id, results: await store.getAlchemyResults(group.id) }))
+    );
+
+    const statusBreakdown = { open: 0, under_review: 0, accepted: 0, rejected: 0 };
+    const contributors = new Map<string, {
+      userId: string;
+      name: string;
+      suggestionCount: number;
+      acceptedCount: number;
+      totalUpvotes: number;
+    }>();
+    const topSuggestions: Array<{
+      suggestion: Suggestion;
+      groupName: string;
+    }> = [];
+
+    let totalUpvotes = 0;
+    let totalDownvotes = 0;
+
+    for (const { group, suggestions } of groupSuggestions) {
+      for (const suggestion of suggestions) {
+        statusBreakdown[suggestion.status] = (statusBreakdown[suggestion.status] ?? 0) + 1;
+        totalUpvotes += suggestion.upvotes;
+        totalDownvotes += suggestion.downvotes;
+        topSuggestions.push({ suggestion, groupName: group.name });
+
+        const author = users.find((user) => user.id === suggestion.authorId);
+        const current = contributors.get(suggestion.authorId) ?? {
+          userId: suggestion.authorId,
+          name: author?.name ?? "Unknown user",
+          suggestionCount: 0,
+          acceptedCount: 0,
+          totalUpvotes: 0,
+        };
+        current.suggestionCount += 1;
+        current.totalUpvotes += suggestion.upvotes;
+        if (suggestion.status === "accepted") current.acceptedCount += 1;
+        contributors.set(suggestion.authorId, current);
+      }
+    }
+
+    const groupSummaries = groupSuggestions
+      .map(({ group, suggestions }) => ({
+        groupId: group.id,
+        name: group.name,
+        memberCount: group.memberCount,
+        totalSuggestions: suggestions.length,
+        accepted: suggestions.filter((suggestion) => suggestion.status === "accepted").length,
+        pending: suggestions.filter((suggestion) => suggestion.status === "open" || suggestion.status === "under_review").length,
+        totalUpvotes: suggestions.reduce((total, suggestion) => total + suggestion.upvotes, 0),
+      }))
+      .sort((a, b) => b.totalSuggestions - a.totalSuggestions || a.name.localeCompare(b.name));
+
+    const scopedUserIds = new Set(groups.flatMap((group) => group.members.map((member) => member.userId)));
+    const totalUsers = isAdmin ? users.length : scopedUserIds.size;
+    const totalSuggestions = groupSuggestions.reduce((total, item) => total + item.suggestions.length, 0);
+
+    return {
+      scope: isAdmin ? "admin" : "user",
+      totals: {
+        totalUsers,
+        totalGroups: groups.length,
+        totalSuggestions,
+        totalAlchemyResults: groupAlchemy.reduce((total, item) => total + item.results.length, 0),
+        totalUpvotes,
+        totalDownvotes,
+        accepted: statusBreakdown.accepted,
+        pending: statusBreakdown.open + statusBreakdown.under_review,
+        rejected: statusBreakdown.rejected,
+      },
+      statusBreakdown,
+      groups: groupSummaries,
+      contributors: [...contributors.values()]
+        .map((contributor) => ({
+          ...contributor,
+          acceptanceRate:
+            contributor.suggestionCount > 0
+              ? (contributor.acceptedCount / contributor.suggestionCount) * 100
+              : 0,
+        }))
+        .sort((a, b) => b.totalUpvotes - a.totalUpvotes || b.suggestionCount - a.suggestionCount)
+        .slice(0, 10),
+      topSuggestions: topSuggestions
+        .map(({ suggestion, groupName }) => ({
+          id: suggestion.id,
+          title: suggestion.title,
+          groupId: suggestion.groupId,
+          groupName,
+          status: suggestion.status,
+          upvotes: suggestion.upvotes,
+          downvotes: suggestion.downvotes,
+          score: suggestion.upvotes - suggestion.downvotes,
+          isOwnSuggestion: suggestion.authorId === requesterId,
+        }))
+        .sort((a, b) => b.score - a.score || b.upvotes - a.upvotes)
+        .slice(0, 20),
     };
   },
 

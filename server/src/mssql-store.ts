@@ -972,6 +972,7 @@ export class MSSQLStore implements IStore {
           c.id,
           c.name,
           c.groupId,
+          c.isGroupChat,
           c.createdAt,
           c.updatedAt,
           (SELECT COUNT(*) FROM ChatMessages cm WHERE cm.conversationId = c.id) AS messageCount
@@ -1023,6 +1024,7 @@ export class MSSQLStore implements IStore {
       id: conv.id,
       name: conv.name,
       groupId: conv.groupId,
+      isGroupChat: Boolean(conv.isGroupChat),
       createdAt: conv.createdAt,
       updatedAt: conv.updatedAt,
       messageCount: conv.messageCount,
@@ -1041,6 +1043,7 @@ export class MSSQLStore implements IStore {
           c.id,
           c.name,
           c.groupId,
+          c.isGroupChat,
           c.createdAt,
           c.updatedAt,
           (SELECT COUNT(*) FROM ChatMessages cm WHERE cm.conversationId = c.id) AS messageCount
@@ -1079,6 +1082,7 @@ export class MSSQLStore implements IStore {
       id: conv.id,
       name: conv.name,
       groupId: conv.groupId,
+      isGroupChat: Boolean(conv.isGroupChat),
       createdAt: conv.createdAt,
       updatedAt: conv.updatedAt,
       messageCount: conv.messageCount,
@@ -1099,11 +1103,12 @@ export class MSSQLStore implements IStore {
       .input("id", sql.VarChar, conversationId)
       .input("name", sql.VarChar, data.name ?? null)
       .input("groupId", sql.VarChar, data.groupId)
+      .input("isGroupChat", sql.Bit, Boolean(data.isGroupChat))
       .input("createdAt", sql.DateTime2, now)
       .input("updatedAt", sql.DateTime2, now)
       .query(`
-        INSERT INTO ChatConversations (id, name, groupId, createdAt, updatedAt)
-        VALUES (@id, @name, @groupId, @createdAt, @updatedAt)
+        INSERT INTO ChatConversations (id, name, groupId, isGroupChat, createdAt, updatedAt)
+        VALUES (@id, @name, @groupId, @isGroupChat, @createdAt, @updatedAt)
       `);
 
     // Add members to the conversation
@@ -1122,11 +1127,83 @@ export class MSSQLStore implements IStore {
       id: conversationId,
       name: data.name ?? null,
       groupId: data.groupId,
+      isGroupChat: Boolean(data.isGroupChat),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
       messageCount: 0,
       members: data.members,
     };
+  }
+
+  async ensureGroupChat(groupId: string): Promise<ChatConversation> {
+    if (!this.pool) throw new Error("Connection pool not initialized");
+    const group = await this.getGroupById(groupId);
+    if (!group) throw new Error(`Group ${groupId} not found`);
+
+    const existingResult = await this.pool
+      .request()
+      .input("groupId", sql.VarChar, groupId)
+      .query(`
+        SELECT TOP 1 id
+        FROM ChatConversations
+        WHERE groupId = @groupId AND isGroupChat = 1
+        ORDER BY createdAt ASC
+      `);
+
+    let conversationId = existingResult.recordset[0]?.id as string | undefined;
+    if (!conversationId) {
+      const conversation = await this.createConversation({
+        groupId,
+        name: group.name,
+        isGroupChat: true,
+        members: group.members.map((member) => member.user),
+      });
+      conversationId = conversation.id;
+    } else {
+      await this.pool
+        .request()
+        .input("conversationId", sql.VarChar, conversationId)
+        .input("name", sql.VarChar, group.name)
+        .input("updatedAt", sql.DateTime2, new Date())
+        .query(`
+          UPDATE ChatConversations
+          SET name = @name, updatedAt = @updatedAt
+          WHERE id = @conversationId
+        `);
+    }
+
+    const memberIds = group.members.map((member) => member.userId);
+    if (memberIds.length > 0) {
+      const deleteRequest = this.pool.request().input("conversationId", sql.VarChar, conversationId);
+      const placeholders = memberIds.map((memberId, index) => {
+        const name = `memberId${index}`;
+        deleteRequest.input(name, sql.VarChar, memberId);
+        return `@${name}`;
+      });
+      await deleteRequest.query(`
+        DELETE FROM ChatConversationMembers
+        WHERE conversationId = @conversationId AND userId NOT IN (${placeholders.join(", ")})
+      `);
+    }
+
+    for (const memberId of memberIds) {
+      await this.pool
+        .request()
+        .input("conversationId", sql.VarChar, conversationId)
+        .input("userId", sql.VarChar, memberId)
+        .query(`
+          IF NOT EXISTS (
+            SELECT 1 FROM ChatConversationMembers
+            WHERE conversationId = @conversationId AND userId = @userId
+          )
+          INSERT INTO ChatConversationMembers (conversationId, userId)
+          VALUES (@conversationId, @userId)
+        `);
+    }
+
+    const conversation = await this.getConversationById(conversationId);
+    if (!conversation) throw new Error(`Group chat ${conversationId} could not be loaded`);
+    return conversation;
   }
 
   async getConversationMessages(

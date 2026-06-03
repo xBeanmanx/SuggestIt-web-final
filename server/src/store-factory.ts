@@ -592,6 +592,7 @@ export class AsyncMemoryStore implements IStore {
     const conversation: ChatConversation = {
       ...data,
       id: uuid(),
+      isGroupChat: Boolean(data.isGroupChat),
       messageCount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -599,6 +600,38 @@ export class AsyncMemoryStore implements IStore {
     this.conversations.set(conversation.id, conversation);
     this.conversationMessages.set(conversation.id, []);
     return conversation;
+  }
+
+  async ensureGroupChat(groupId: string): Promise<ChatConversation> {
+    const group = this.groups.get(groupId);
+    if (!group) throw new Error(`Group ${groupId} not found`);
+
+    const members = group.members
+      .map((member) => this.users.get(member.userId))
+      .filter((user): user is User => Boolean(user))
+      .map((user) => this.sanitizeUser(user));
+
+    const existing = [...this.conversations.values()].find(
+      (conversation) => conversation.groupId === groupId && conversation.isGroupChat
+    );
+
+    if (existing) {
+      const updated = {
+        ...existing,
+        name: group.name,
+        members,
+        updatedAt: new Date().toISOString(),
+      };
+      this.conversations.set(existing.id, updated);
+      return updated;
+    }
+
+    return this.createConversation({
+      groupId,
+      name: group.name,
+      isGroupChat: true,
+      members,
+    });
   }
 
   async getConversationMessages(conversationId: string, limit?: number): Promise<ChatMessage[]> {

@@ -12,6 +12,9 @@ export class ChatConversation {
   @Column({ type: "varchar", length: 36 })
   groupId: string;
 
+  @Column({ type: "bit", default: false })
+  isGroupChat: boolean;
+
   @ManyToMany(() => User)
   @JoinTable({ name: "ChatConversationMembers" })
   members: User[];

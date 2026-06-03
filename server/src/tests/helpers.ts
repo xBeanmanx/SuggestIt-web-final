@@ -128,6 +128,8 @@ export function seedUser(
     email: overrides?.email ?? `user-${Math.random().toString(36).slice(7)}@test.local`,
     username: overrides?.username ?? `user_${Math.random().toString(36).slice(7)}`,
     avatarUrl: overrides?.avatarUrl,
+    role: overrides?.role,
+    permissions: overrides?.permissions,
     createdAt: new Date().toISOString(),
   };
   store._seedUser(user);

@@ -149,11 +149,64 @@ export interface ChatConversation {
   id: string;
   name: string | null;
   groupId: string;
+  isGroupChat?: boolean;
   members: User[];
   messageCount: number;
   createdAt: string;
   updatedAt: string;
   messages?: ChatMessage[];
+}
+
+export interface StatisticsTotals {
+  totalUsers: number;
+  totalGroups: number;
+  totalSuggestions: number;
+  totalAlchemyResults: number;
+  totalUpvotes: number;
+  totalDownvotes: number;
+  accepted: number;
+  pending: number;
+  rejected: number;
+}
+
+export interface StatisticsGroupSummary {
+  groupId: string;
+  name: string;
+  memberCount: number;
+  totalSuggestions: number;
+  accepted: number;
+  pending: number;
+  totalUpvotes: number;
+}
+
+export interface StatisticsContributor {
+  userId: string;
+  name: string;
+  suggestionCount: number;
+  acceptedCount: number;
+  totalUpvotes: number;
+  acceptanceRate: number;
+}
+
+export interface StatisticsTopSuggestion {
+  id: string;
+  title: string;
+  groupId: string;
+  groupName: string;
+  status: SuggestionStatus;
+  upvotes: number;
+  downvotes: number;
+  score: number;
+  isOwnSuggestion: boolean;
+}
+
+export interface StatisticsSnapshot {
+  scope: "user" | "admin";
+  totals: StatisticsTotals;
+  statusBreakdown: StatusBreakdown;
+  groups: StatisticsGroupSummary[];
+  contributors: StatisticsContributor[];
+  topSuggestions: StatisticsTopSuggestion[];
 }
 
 //  IStore interface (adapter contract) 
@@ -216,6 +269,7 @@ export interface IStore {
   createConversation(
     data: Omit<ChatConversation, "id" | "createdAt" | "updatedAt" | "messageCount" | "messages">
   ): Promise<ChatConversation>;
+  ensureGroupChat(groupId: string): Promise<ChatConversation>;
   getConversationMessages(conversationId: string, limit?: number): Promise<ChatMessage[]>;
   sendChatMessage(
     data: Omit<ChatMessage, "id" | "createdAt">

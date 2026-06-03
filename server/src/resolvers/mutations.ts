@@ -14,6 +14,7 @@ import {
 } from "../validation.js";
 import type { AppRoleName, Context, SuggestionStatus, VoteType } from "../types.js";
 import type { User } from "../types.js";
+import { broadcastChatMessage } from "../chat-ws.js";
 import {
   hashRefreshToken,
   consumeSignedFlowToken,
@@ -656,6 +657,24 @@ export const mutationResolvers = {
     return conversation;
   },
 
+  async ensureGroupChat(
+    _: unknown,
+    { groupId }: { groupId: string },
+    { store, userId }: Context
+  ) {
+    const requesterId = requireAuthenticatedUser(userId);
+    await requireGroupMember(store, groupId, requesterId);
+
+    const conversation = await store.ensureGroupChat(groupId);
+    await store.recordAction({
+      userId: requesterId,
+      groupId,
+      action: "OPEN_GROUP_CHAT",
+      actionInformation: `Opened group chat ${conversation.id}`,
+    });
+    return conversation;
+  },
+
   async sendChatMessage(
     _: unknown,
     { input }: { input: { conversationId: string; userId: string; content: string } },
@@ -679,6 +698,14 @@ export const mutationResolvers = {
 
     // Populate the user field on the message
     (message as any).user = user;
+    broadcastChatMessage(input.conversationId, {
+      id: message.id,
+      conversationId: message.conversationId,
+      userId: message.userId,
+      content: message.content,
+      createdAt: message.createdAt,
+      user,
+    });
 
     await store.recordAction({
       userId: requesterId,

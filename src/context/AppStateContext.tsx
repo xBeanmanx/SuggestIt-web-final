@@ -675,8 +675,10 @@ export function AppStateProvider({
       id,
       userId: state.currentUser.id,
       vote,
+    }).then(syncServerState).catch(() => {
+      console.warn("Failed to persist vote, will retry when online");
     });
-  }, [state, dispatch, persistOrQueue]);
+  }, [state, dispatch, persistOrQueue, syncServerState]);
 
   const setSuggestionStatusCallback = useCallback((id: string, status: SuggestionStatus) => {
     setSuggestionStatus(id, status, dispatch);

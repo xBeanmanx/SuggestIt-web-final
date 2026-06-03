@@ -38,6 +38,18 @@ const GLOBAL_STATS = /* GraphQL */ `
   }
 `;
 
+const STATISTICS_SNAPSHOT = /* GraphQL */ `
+  query StatisticsSnapshot {
+    statisticsSnapshot {
+      scope
+      totals { totalUsers totalGroups totalSuggestions accepted pending totalUpvotes }
+      groups { groupId name totalSuggestions }
+      contributors { userId suggestionCount }
+      topSuggestions { id groupId score isOwnSuggestion }
+    }
+  }
+`;
+
 const COMBINE_IDEAS = /* GraphQL */ `
   mutation CombineIdeas($sourceId1: ID!, $sourceId2: ID!, $groupId: ID!) {
     combineIdeas(sourceId1: $sourceId1, sourceId2: $sourceId2, groupId: $groupId) {
@@ -203,6 +215,41 @@ describe("globalStats", () => {
     const result = await env.execute(GLOBAL_STATS);
     const data = getData<{ globalStats: { overallUpvotes: number } }>(result);
     expect(data.globalStats.overallUpvotes).toBe(2);
+  });
+});
+
+describe("statisticsSnapshot", () => {
+  it("limits regular users to groups they belong to", async () => {
+    const user = await seedUser(env.store, { name: "Regular", role: "USER" });
+    const other = await seedUser(env.store, { name: "Other", role: "USER" });
+    const visibleGroup = await seedGroup(env.store, user.id, { name: "Visible" });
+    const hiddenGroup = await seedGroup(env.store, other.id, { name: "Hidden" });
+    await seedSuggestion(env.store, visibleGroup.id, user.id);
+    await seedSuggestion(env.store, hiddenGroup.id, other.id);
+
+    const result = await env.execute(STATISTICS_SNAPSHOT, {}, { userId: user.id });
+    const data = getData<{ statisticsSnapshot: { scope: string; totals: { totalGroups: number; totalSuggestions: number }; groups: Array<{ groupId: string }> } }>(result);
+
+    expect(data.statisticsSnapshot.scope).toBe("user");
+    expect(data.statisticsSnapshot.totals.totalGroups).toBe(1);
+    expect(data.statisticsSnapshot.totals.totalSuggestions).toBe(1);
+    expect(data.statisticsSnapshot.groups.map((group) => group.groupId)).toEqual([visibleGroup.id]);
+  });
+
+  it("shows all groups to admins", async () => {
+    const admin = await seedUser(env.store, { name: "Admin", role: "ADMIN" });
+    const other = await seedUser(env.store, { name: "Other", role: "USER" });
+    const adminGroup = await seedGroup(env.store, admin.id);
+    const otherGroup = await seedGroup(env.store, other.id);
+    await seedSuggestion(env.store, adminGroup.id, admin.id);
+    await seedSuggestion(env.store, otherGroup.id, other.id);
+
+    const result = await env.execute(STATISTICS_SNAPSHOT, {}, { userId: admin.id });
+    const data = getData<{ statisticsSnapshot: { scope: string; totals: { totalGroups: number; totalSuggestions: number } } }>(result);
+
+    expect(data.statisticsSnapshot.scope).toBe("admin");
+    expect(data.statisticsSnapshot.totals.totalGroups).toBe(2);
+    expect(data.statisticsSnapshot.totals.totalSuggestions).toBe(2);
   });
 });
 

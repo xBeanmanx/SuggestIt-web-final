@@ -24,6 +24,17 @@ const SEND_MESSAGE = /* GraphQL */ `
   }
 `;
 
+const ENSURE_GROUP_CHAT = /* GraphQL */ `
+  mutation EnsureGroupChat($groupId: ID!) {
+    ensureGroupChat(groupId: $groupId) {
+      id
+      groupId
+      isGroupChat
+      members { id }
+    }
+  }
+`;
+
 describe("chat security", () => {
   it("requires authentication to create chat conversations", async () => {
     const owner = seedUser(env.store);
@@ -79,5 +90,31 @@ describe("chat security", () => {
     );
 
     expect(getErrors(result)[0]?.extensions?.code).toBe("FORBIDDEN");
+  });
+
+  it("creates one canonical group chat per group", async () => {
+    const owner = seedUser(env.store);
+    const group = seedGroup(env.store, owner.id);
+
+    const first = await env.execute(ENSURE_GROUP_CHAT, { groupId: group.id }, { userId: owner.id });
+    const second = await env.execute(ENSURE_GROUP_CHAT, { groupId: group.id }, { userId: owner.id });
+
+    const firstChat = getData<{ ensureGroupChat: { id: string; isGroupChat: boolean } }>(first).ensureGroupChat;
+    const secondChat = getData<{ ensureGroupChat: { id: string; isGroupChat: boolean } }>(second).ensureGroupChat;
+
+    expect(firstChat.isGroupChat).toBe(true);
+    expect(secondChat.id).toBe(firstChat.id);
+  });
+
+  it("keeps group chat members aligned with the group", async () => {
+    const owner = seedUser(env.store);
+    const member = seedUser(env.store);
+    const group = seedGroup(env.store, owner.id);
+    await env.store.joinGroup(group.id, member.id);
+
+    const result = await env.execute(ENSURE_GROUP_CHAT, { groupId: group.id }, { userId: owner.id });
+    const chat = getData<{ ensureGroupChat: { members: Array<{ id: string }> } }>(result).ensureGroupChat;
+
+    expect(chat.members.map((m) => m.id).sort()).toEqual([member.id, owner.id].sort());
   });
 });
