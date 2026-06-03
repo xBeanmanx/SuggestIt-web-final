@@ -1,3 +1,4 @@
+import dns from "dns/promises";
 import net from "net";
 import nodemailer from "nodemailer";
 
@@ -45,11 +46,13 @@ export async function sendEmail(message: EmailMessage): Promise<"smtp" | "consol
   }
 
   if (user || pass || secure) {
+    const smtpHost = host;
+    const smtpAddress = (await dns.lookup(smtpHost, { family: 4 })).address;
     const transporter = nodemailer.createTransport({
-      host,
+      host: smtpAddress,
       port,
       secure,
-      family: 4,
+      tls: { servername: smtpHost },
       auth: user && pass ? { user, pass } : undefined,
     });
 
