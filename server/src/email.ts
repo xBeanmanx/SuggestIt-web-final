@@ -8,6 +8,14 @@ export interface EmailMessage {
   text: string;
 }
 
+function logEmailFallback(message: EmailMessage, reason?: unknown): "console" {
+  if (reason) {
+    console.warn("[Email fallback] SMTP delivery failed:", reason instanceof Error ? reason.message : reason);
+  }
+  console.log(`[Email fallback] To: ${message.to}\nSubject: ${message.subject}\n${message.text}`);
+  return "console";
+}
+
 function readLine(socket: net.Socket): Promise<string> {
   return new Promise((resolve, reject) => {
     const onData = (data: Buffer) => {
@@ -39,30 +47,38 @@ export async function sendEmail(message: EmailMessage): Promise<"smtp" | "consol
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const secure = process.env.SMTP_SECURE === "true" || port === 465;
+  const timeoutMs = Number(process.env.SMTP_TIMEOUT_MS ?? 10000);
 
   if (!host) {
-    console.log(`[Email fallback] To: ${message.to}\nSubject: ${message.subject}\n${message.text}`);
-    return "console";
+    return logEmailFallback(message);
   }
 
   if (user || pass || secure) {
-    const smtpHost = host;
-    const smtpAddress = (await dns.lookup(smtpHost, { family: 4 })).address;
-    const transporter = nodemailer.createTransport({
-      host: smtpAddress,
-      port,
-      secure,
-      tls: { servername: smtpHost },
-      auth: user && pass ? { user, pass } : undefined,
-    });
+    try {
+      const smtpHost = host;
+      const smtpAddress = (await dns.lookup(smtpHost, { family: 4 })).address;
+      const transporter = nodemailer.createTransport({
+        host: smtpAddress,
+        port,
+        secure,
+        connectionTimeout: timeoutMs,
+        greetingTimeout: timeoutMs,
+        socketTimeout: timeoutMs,
+        tls: { servername: smtpHost },
+        auth: user && pass ? { user, pass } : undefined,
+      });
 
-    await transporter.sendMail({
-      from,
-      to: message.to,
-      subject: message.subject,
-      text: message.text,
-    });
-    return "smtp";
+      await transporter.sendMail({
+        from,
+        to: message.to,
+        subject: message.subject,
+        text: message.text,
+      });
+      return "smtp";
+    } catch (error) {
+      if (process.env.SMTP_ALLOW_CONSOLE_FALLBACK === "false") throw error;
+      return logEmailFallback(message, error);
+    }
   }
 
   const socket = net.createConnection({ host, port });
