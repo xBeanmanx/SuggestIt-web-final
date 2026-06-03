@@ -5,7 +5,7 @@
 
 import { AsyncMemoryStore } from "./store-factory.js";
 import type { IStore } from "./types.js";
-import type { User, SuggestionStatus } from "./types.js";
+import type { AppRoleName, User, SuggestionStatus } from "./types.js";
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -64,6 +64,50 @@ const SUGGESTION_SEEDS: Array<Array<{ title: string; description: string }>> = [
 
 const STATUSES: SuggestionStatus[] = ["open", "open", "open", "under_review", "accepted", "rejected"];
 
+const DEMO_ACCOUNTS: Array<{
+  name: string;
+  email: string;
+  username: string;
+  role: AppRoleName;
+  avatarSeed: string;
+}> = [
+  {
+    name: "Simon Admin",
+    email: "simonlacika1234@gmail.com",
+    username: "simon",
+    role: "ADMIN",
+    avatarSeed: "simon-admin",
+  },
+  {
+    name: "Simon Reviewer",
+    email: "simonlacika1234onedrive@gmail.com",
+    username: "simonreviewer",
+    role: "ADMIN",
+    avatarSeed: "simon-reviewer",
+  },
+  {
+    name: "Siklo Budos",
+    email: "siklobudos@gmail.com",
+    username: "siklobudos",
+    role: "USER",
+    avatarSeed: "siklo-budos",
+  },
+  {
+    name: "Jones Mingus",
+    email: "jonesmingus73@gmail.com",
+    username: "jonesmingus",
+    role: "USER",
+    avatarSeed: "jones-mingus",
+  },
+  {
+    name: "Mingus Jones",
+    email: "mingusjones46@gmail.com",
+    username: "mingusjones",
+    role: "USER",
+    avatarSeed: "mingus-jones",
+  },
+];
+
 export async function seedStore(store: IStore): Promise<void> {
   // Delete old admin user if it exists with the old email
   const oldAdmin = await store.getUserByEmail("admin@suggestit.local");
@@ -72,50 +116,97 @@ export async function seedStore(store: IStore): Promise<void> {
     // Since there's no delete method, we'll create the new one which will have the correct email
   }
 
-  // Seed demo admin and user accounts with usernames
-  const adminUser = await store.createUser({
-    name: "Admin User",
-    email: "simonlacika1234@gmail.com",
-    username: "admin",
-    password: "admin123",
-    role: "ADMIN",
-    permissions: ["READ_DOMAIN", "WRITE_OWN_SUGGESTIONS", "ADMINISTER_DOMAIN", "VIEW_SECURITY_LOGS"],
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=admin",
-  });
+  const createDemoAccount = async (account: (typeof DEMO_ACCOUNTS)[number]): Promise<User> => {
+    const permissions =
+      account.role === "ADMIN"
+        ? ["READ_DOMAIN", "WRITE_OWN_SUGGESTIONS", "ADMINISTER_DOMAIN", "VIEW_SECURITY_LOGS"]
+        : ["READ_DOMAIN", "WRITE_OWN_SUGGESTIONS"];
 
-  const regularUser = await store.createUser({
-    name: "Regular User",
-    email: "user@suggestit.local",
-    username: "user",
-    password: "user1234",
-    role: "USER",
-    permissions: ["READ_DOMAIN", "WRITE_OWN_SUGGESTIONS"],
-    avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
-  });
+    try {
+      return await store.createUser({
+        name: account.name,
+        email: account.email,
+        username: account.username,
+        password: "password123",
+        role: account.role,
+        permissions,
+        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(account.avatarSeed)}`,
+      });
+    } catch (error) {
+      const existing = await store.getUserByEmail(account.email);
+      if (existing) return existing;
+      throw error;
+    }
+  };
+
+  const demoUsers = await Promise.all(DEMO_ACCOUNTS.map(createDemoAccount));
+  const [adminUser, reviewerAdmin, regularUser, jonesUser, mingusUser] = demoUsers;
 
   // Create a shared group for both users to chat in
   const sharedGroup = await store.createGroup(
     {
       name: "Demo Chat Group",
-      description: "Group for demonstrating real-time chat between admin and regular user",
+      description: "Group for demonstrating real-time chat between admins and regular users",
       ownerId: adminUser.id,
     },
-    [regularUser.id]
+    demoUsers.slice(1).map((user) => user.id)
   );
 
   // Create a sample conversation between admin and user
   const conversation = await store.createConversation({
     groupId: sharedGroup.id,
-    name: "Admin & User Chat",
-    members: [adminUser, regularUser],
+    name: "Demo Team Chat",
+    members: [adminUser, reviewerAdmin, regularUser],
   });
 
   // Seed a welcome message
   await store.sendChatMessage({
     conversationId: conversation.id,
     userId: adminUser.id,
-    content: "Welcome! This conversation demonstrates real-time chat. Both admin and regular users can participate equally.",
+    content: "Welcome! This conversation demonstrates real-time chat between admin and regular user accounts.",
   });
+
+  const reviewGroup = await store.createGroup(
+    {
+      name: "Professor Demo Review",
+      description: "A seeded group with known login accounts, mixed roles, and ready-made suggestions for testing.",
+      ownerId: reviewerAdmin.id,
+    },
+    [adminUser.id, regularUser.id, jonesUser.id, mingusUser.id]
+  );
+
+  const reviewSuggestions = [
+    {
+      authorId: regularUser.id,
+      title: "Add deployment checklist",
+      description: "Create a visible checklist for database, email, WebSocket, and authentication setup before demos.",
+      status: "open" as SuggestionStatus,
+    },
+    {
+      authorId: jonesUser.id,
+      title: "Improve group invite flow",
+      description: "Show clearer feedback when a user joins a group or enters an invalid invite code.",
+      status: "under_review" as SuggestionStatus,
+    },
+    {
+      authorId: mingusUser.id,
+      title: "Add admin role audit",
+      description: "Record every admin role assignment so the administrator page can prove who changed access.",
+      status: "accepted" as SuggestionStatus,
+    },
+  ];
+
+  for (const suggestion of reviewSuggestions) {
+    const created = await store.createSuggestion({
+      groupId: reviewGroup.id,
+      authorId: suggestion.authorId,
+      title: suggestion.title,
+      description: suggestion.description,
+    });
+    if (suggestion.status !== "open") {
+      await store.setSuggestionStatus(created.id, suggestion.status);
+    }
+  }
 
   // Seed existing users and groups
   const seededUserIds = new Map<string, string>();
