@@ -164,9 +164,6 @@ export function StatisticsPage() {
           <Button size="sm" onClick={() => setViewMode("table")} style={{ backgroundColor: viewMode === "table" ? "var(--app-purple-600)" : "var(--app-bg-secondary)", color: viewMode === "table" ? "#fff" : "var(--app-text-muted)", border: "1px solid var(--app-border-primary)" }}>
             <TableIcon className="w-4 h-4 mr-2" /> Table
           </Button>
-          <Button size="icon" variant="outline" onClick={refresh} className="w-8 h-8" style={{ backgroundColor: "var(--app-bg-secondary)", borderColor: "var(--app-border-primary)", color: "var(--app-text-muted)" }}>
-            <RefreshCw className="w-4 h-4" />
-          </Button>
         </div>
       </div>
 
